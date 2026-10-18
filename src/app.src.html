@@ -96,18 +96,19 @@ header h1 { font-size: 18px; font-weight: 800; letter-spacing: -.01em; display: 
 .stats div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .stats b { font-family: var(--font-display); font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .stats span { font-size: 12px; color: var(--muted); }
+.stats #stSession { font-size: 34px; line-height: 1.05; }
 .mini { align-self: flex-start; margin-top: 4px; background: none; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; min-height: 26px; font-size: 12px; font-weight: 700; color: var(--muted); }
 .mini.confirm { border-color: var(--danger); color: var(--danger); }
 
 .taps { display: grid; grid-template-columns: 76px 1fr; gap: 10px; }
 .tap {
-  border: 0; border-radius: 18px; height: 84px; font-family: var(--font-display); font-weight: 800; font-size: 26px;
+  border: 0; border-radius: 22px; height: 140px; font-family: var(--font-display); font-weight: 800; font-size: 26px;
   touch-action: manipulation; user-select: none; -webkit-user-select: none; transition: transform .06s;
 }
 .tap:active:not(:disabled), .tap.pressed { transform: scale(.97); }
-.tap.plus { background: var(--accent); color: var(--accent-ink); box-shadow: 0 4px 0 var(--accent-deep); }
-.tap.plus small { display: block; font-family: var(--font-body); font-size: 13px; font-weight: 500; margin-top: 2px; }
-.tap.minus { background: var(--surface); border: 1px solid var(--line); color: var(--ink); font-size: 22px; }
+.tap.plus { background: var(--accent); color: var(--accent-ink); box-shadow: 0 5px 0 var(--accent-deep); font-size: 48px; line-height: 1; }
+.tap.plus small { display: block; font-family: var(--font-body); font-size: 14px; font-weight: 500; margin-top: 6px; }
+.tap.minus { background: var(--surface); border: 1px solid var(--line); color: var(--ink); font-size: 24px; }
 /* An invisible switch sits over each tap button. iOS only plays its haptic tick when a finger
    taps a real switch, so the tap lands on the switch and is passed on to the button. */
 .hit-wrap { position: relative; display: grid; }
@@ -163,7 +164,7 @@ form.new .full { grid-column: 1 / -1; }
 .tip p { margin: 0; }
 .tip p + p { margin-top: 8px; }
 .status { font-size: 12.5px; color: var(--muted); text-align: center; margin: 0; }
-@media (max-width: 360px) { .taps { grid-template-columns: 64px 1fr; } .stats b { font-size: 17px; } }
+@media (max-width: 360px) { .taps { grid-template-columns: 64px 1fr; } .stats b { font-size: 17px; } .stats #stSession { font-size: 30px; } .tap { height: 128px; } }
 @media (prefers-reduced-motion: reduce) { .count.bump, .sparkles.go i { animation: none; } .bar > i, .tap { transition: none; } }
 </style>
 
@@ -245,7 +246,7 @@ form.new .full { grid-column: 1 / -1; }
 
   <div class="tip" id="tip"></div>
   <p class="status" id="status">Connecting…</p>
-  <p class="status" id="version">Version 1.6</p>
+  <p class="status" id="version">Version 1.7</p>
 </main>
 
 <script>
