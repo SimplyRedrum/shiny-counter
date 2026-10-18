@@ -213,7 +213,7 @@ form.new .full { grid-column: 1 / -1; }
       <div class="stats">
         <div><b id="stChance">0%</b><span>chance it showed by now</span></div>
         <div><b id="stOdds">1/8192</b><span>odds per reset</span></div>
-        <div><b id="stToday">0</b><span>resets today</span><button class="mini" id="resetToday" type="button" hidden>Reset</button></div>
+        <div><b id="stSession">0</b><span>this session</span><button class="mini" id="resetSession" type="button" hidden>Reset</button></div>
       </div>
     </div>
   </div>
@@ -245,7 +245,7 @@ form.new .full { grid-column: 1 / -1; }
 
   <div class="tip" id="tip"></div>
   <p class="status" id="status">Connecting…</p>
-  <p class="status" id="version">Version 1.5</p>
+  <p class="status" id="version">Version 1.6</p>
 </main>
 
 <script>
@@ -279,6 +279,9 @@ form.new .full { grid-column: 1 / -1; }
   const STAR = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 1l2.6 8.4L23 12l-8.4 2.6L12 23l-2.6-8.4L1 12l8.4-2.6z"/></svg>';
   $("sparkles").innerHTML = ("<i>" + STAR + "</i>").repeat(5);
 
+  // Resets since the session counter was last reset. Hunts saved before sessions existed
+  // start from that day's tally.
+  const sessionOf = (h) => typeof h.session === "number" ? h.session : (h.days && h.days[todayKey()]) || 0;
   const todayKey = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
   const fmt = (n) => n.toLocaleString();
   const chance = (n, odds) => 1 - Math.pow(1 - 1 / odds, n);
@@ -365,10 +368,10 @@ form.new .full { grid-column: 1 / -1; }
     const p = h ? chance(h.count, odds) : 0;
     $("stChance").textContent = pct(p);
     $("stOdds").textContent = "1/" + odds;
-    const today = h ? (h.days && h.days[todayKey()]) || 0 : 0;
-    $("stToday").textContent = fmt(today);
-    $("resetToday").hidden = !today;
-    if (!today) disarmResetToday();
+    const session = h ? sessionOf(h) : 0;
+    $("stSession").textContent = fmt(session);
+    $("resetSession").hidden = !session;
+    if (!session) disarmResetSession();
     $("bar").style.width = Math.min(100, p * 100) + "%";
     $("plusBtn").disabled = $("minusBtn").disabled = $("foundBtn").disabled = !h || !!h.foundAt;
     $("tip").innerHTML = TIPS[gen];
@@ -435,9 +438,7 @@ form.new .full { grid-column: 1 / -1; }
     const next = Math.max(0, h.count + delta);
     if (next === h.count) return;
     h.count = next;
-    const k = todayKey(); h.days = Object.assign({}, h.days);
-    h.days[k] = Math.max(0, (h.days[k] || 0) + delta);
-    const keys = Object.keys(h.days).sort(); while (keys.length > 60) delete h.days[keys.shift()];
+    h.session = Math.max(0, sessionOf(h) + delta); delete h.days;
     h.updatedAt = Date.now();
     save(state.activeId); render(); tick(); if (delta > 0) bump();
     keepAwake();
@@ -475,24 +476,24 @@ form.new .full { grid-column: 1 / -1; }
   });
   function flash(id) { const b = $(id); b.classList.add("pressed"); setTimeout(() => b.classList.remove("pressed"), 90); }
 
-  // Resets only today's tally; the hunt's total stays. Needs a second tap within 3 seconds.
+  // Resets only the session count; the hunt's total stays. Needs a second tap within 3 seconds.
   let resetTimer = null;
-  function disarmResetToday() {
+  function disarmResetSession() {
     clearTimeout(resetTimer); resetTimer = null;
-    const b = $("resetToday"); b.classList.remove("confirm"); b.textContent = "Reset";
+    const b = $("resetSession"); b.classList.remove("confirm"); b.textContent = "Reset";
   }
-  $("resetToday").addEventListener("click", () => {
-    const h = active(), b = $("resetToday");
+  $("resetSession").addEventListener("click", () => {
+    const h = active(), b = $("resetSession");
     if (!h) return;
     if (!resetTimer) {
       b.classList.add("confirm"); b.textContent = "Tap again";
-      resetTimer = setTimeout(disarmResetToday, 3000);
+      resetTimer = setTimeout(disarmResetSession, 3000);
       return;
     }
-    disarmResetToday();
-    h.days = Object.assign({}, h.days); h.days[todayKey()] = 0; h.updatedAt = Date.now();
+    disarmResetSession();
+    h.session = 0; delete h.days; h.updatedAt = Date.now();
     save(state.activeId); render();
-    setStatus("Today's count reset. Your total is unchanged.");
+    setStatus("Session count reset. Your total is unchanged.");
   });
 
   $("foundBtn").addEventListener("click", () => {
@@ -601,7 +602,7 @@ form.new .full { grid-column: 1 / -1; }
     const start = Math.max(0, parseInt($("fStart").value, 10) || 0);
     const id = "h" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const now = Date.now();
-    state.hunts[id] = { name: NAMES[dex - 1], dex, game, odds: Number($("fOdds").value), count: start, days: {}, startedAt: now, updatedAt: now };
+    state.hunts[id] = { name: NAMES[dex - 1], dex, game, odds: Number($("fOdds").value), count: start, session: 0, startedAt: now, updatedAt: now };
     state.activeId = id; lsSet(LS_ACTIVE, id);
     $("newForm").reset(); $("newForm").hidden = true; $("fPreview").replaceChildren();
     save(id); render();
