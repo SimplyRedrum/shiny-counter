@@ -106,7 +106,14 @@ header h1 { font-size: 18px; font-weight: 800; letter-spacing: -.01em; display: 
 .tap.plus { background: var(--accent); color: var(--accent-ink); box-shadow: 0 4px 0 var(--accent-deep); }
 .tap.plus small { display: block; font-family: var(--font-body); font-size: 13px; font-weight: 500; margin-top: 2px; }
 .tap.minus { background: var(--surface); border: 1px solid var(--line); color: var(--ink); font-size: 22px; }
-.found-btn { border: 0; border-radius: 14px; padding: 12px; font-weight: 700; background: var(--night); color: var(--bg); }
+/* An invisible switch sits over each tap button. iOS only plays its haptic tick when a finger
+   taps a real switch, so the tap lands on the switch and is passed on to the button. */
+.hit-wrap { position: relative; display: grid; }
+.haptic-hit { position: absolute; inset: 0; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+.haptic-hit input { position: absolute; left: 0; top: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+button:disabled + .haptic-hit { display: none; }
+.found-btn { border: 0; border-radius: 14px; padding: 12px; font-weight: 700; background: var(--night); color: var(--bg); transition: transform .06s; }
+.found-btn.pressed { transform: scale(.98); }
 .hint { font-size: 13px; color: var(--muted); text-align: center; margin: -6px 0 0; }
 kbd { font-family: var(--font-body); font-size: 12px; font-weight: 700; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--surface); }
 
@@ -210,10 +217,10 @@ form.new .full { grid-column: 1 / -1; }
   </div>
 
   <div class="taps">
-    <button class="tap minus" id="minusBtn" type="button" aria-label="Take back one reset">−1</button>
-    <button class="tap plus" id="plusBtn" type="button" aria-label="Add one reset">+1<small>Tap after every reset</small></button>
+    <div class="hit-wrap"><button class="tap minus" id="minusBtn" type="button" aria-label="Take back one reset">−1</button><label class="haptic-hit" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label></div>
+    <div class="hit-wrap"><button class="tap plus" id="plusBtn" type="button" aria-label="Add one reset">+1<small>Tap after every reset</small></button><label class="haptic-hit" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label></div>
   </div>
-  <button class="found-btn" id="foundBtn" type="button">It's shiny! Mark as found</button>
+  <div class="hit-wrap"><button class="found-btn" id="foundBtn" type="button">It's shiny! Mark as found</button><label class="haptic-hit" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label></div>
   <p class="hint">On a keyboard: <kbd>Space</kbd> adds one, <kbd>Backspace</kbd> takes one back.</p>
 
   <section class="panel">
@@ -236,7 +243,7 @@ form.new .full { grid-column: 1 / -1; }
 
   <div class="tip" id="tip"></div>
   <p class="status" id="status">Connecting…</p>
-  <p class="status" id="version">Version 1.3</p>
+  <p class="status" id="version">Version 1.4</p>
 </main>
 
 <script>
@@ -431,29 +438,20 @@ form.new .full { grid-column: 1 / -1; }
     keepAwake();
   }
 
-  // Haptics. Android vibrates directly. iPhone Safari has no vibration API, but since iOS 18
-  // flipping a switch control plays a system tick, so we flip a hidden one.
+  // Haptics. Android vibrates through the vibration API. iPhone has no such API; its tick comes
+  // from the finger tapping the invisible switch laid over each button (see .haptic-hit).
   const canVibrate = typeof navigator.vibrate === "function";
-  // Same approach as the ios-haptics library: a fresh, hidden switch in <head>, clicked once.
-  function flipSwitch() {
-    try {
-      const label = document.createElement("label");
-      label.setAttribute("aria-hidden", "true");
-      label.style.display = "none";
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.setAttribute("switch", "");
-      label.appendChild(input);
-      document.head.appendChild(label);
-      label.click();
-      document.head.removeChild(label);
-    } catch (e) {}
-  }
-  function tick() { if (canVibrate) navigator.vibrate(12); else flipSwitch(); }
-  function celebrate() {
-    if (canVibrate) { navigator.vibrate([40, 70, 40, 70, 120]); return; }
-    [0, 110, 220].forEach((ms) => setTimeout(flipSwitch, ms));
-  }
+  function tick() { if (canVibrate) navigator.vibrate(12); }
+  function celebrate() { if (canVibrate) navigator.vibrate([40, 70, 40, 70, 120]); }
+  document.querySelectorAll(".hit-wrap").forEach((wrap) => {
+    const btn = wrap.querySelector("button"), hit = wrap.querySelector(".haptic-hit");
+    hit.querySelector("input").addEventListener("change", (e) => {
+      e.target.blur(); // keep keyboard shortcuts working after a tap
+      if (!btn.disabled) btn.click();
+    });
+    hit.addEventListener("pointerdown", () => btn.classList.add("pressed"));
+    for (const ev of ["pointerup", "pointercancel", "pointerleave"]) hit.addEventListener(ev, () => btn.classList.remove("pressed"));
+  });
 
   let wake = null;
   async function keepAwake() {
