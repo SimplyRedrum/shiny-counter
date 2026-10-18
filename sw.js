@@ -1,5 +1,5 @@
 // Caches the app so it opens without a connection. Sprite animations are cached as they're viewed.
-const CACHE = "shiny-counter-v2";
+const CACHE = "shiny-counter-v3";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "anim/gen2.json"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))); self.clients.claim(); });

@@ -1,0 +1,619 @@
+<title>Shiny Reset Counter</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;700&display=swap">
+<style>
+/* Layout: one phone-width column. The sprite stands on a battle platform at the top, the count sits under it, and a wide tap bar is the main control. Hunts and notes follow. */
+:root {
+  --bg: #f3f2f8;
+  --surface: #ffffff;
+  --ink: #1d1b2e;
+  --muted: #64617a;
+  --line: #e1dfeb;
+  --accent: #f2b705;
+  --accent-ink: #231a00;
+  --accent-deep: #c79300;
+  --night: #2b2c6b;
+  --platform: #cfe7b4;
+  --platform-edge: #a6cc86;
+  --sky-1: #e9ecff;
+  --sky-2: #fdf6dc;
+  --good: #2f7d46;
+  --danger: #b3261e;
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121222; --surface: #1c1c31; --ink: #eeedf7; --muted: #a3a1bb; --line: #2e2d48;
+    --accent: #ffc94a; --accent-ink: #231a00; --accent-deep: #d9a21c; --night: #b9bcff;
+    --platform: #34502c; --platform-edge: #4d7240; --sky-1: #1f2150; --sky-2: #2c2440;
+    --good: #7fd494; --danger: #ff8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121222; --surface: #1c1c31; --ink: #eeedf7; --muted: #a3a1bb; --line: #2e2d48;
+  --accent: #ffc94a; --accent-ink: #231a00; --accent-deep: #d9a21c; --night: #b9bcff;
+  --platform: #34502c; --platform-edge: #4d7240; --sky-1: #1f2150; --sky-2: #2c2440;
+  --good: #7fd494; --danger: #ff8a80;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 48px;
+}
+main { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+:focus-visible { outline: 3px solid var(--night); outline-offset: 2px; }
+h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+header h1 { font-size: 18px; font-weight: 800; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+.star { width: 18px; height: 18px; color: var(--accent-deep); flex: none; }
+.quiet { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-weight: 700; font-size: 14px; }
+
+/* Stage */
+.stage { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; }
+.scene {
+  position: relative; height: 230px; display: grid; place-items: end center; padding-bottom: 34px;
+  background: linear-gradient(180deg, var(--sky-1), var(--sky-2));
+}
+.platform { position: absolute; left: 50%; bottom: 22px; width: 220px; height: 46px; transform: translateX(-50%); border-radius: 50%; background: var(--platform); box-shadow: inset 0 -6px 0 var(--platform-edge); }
+.sprite { position: relative; image-rendering: pixelated; background-repeat: no-repeat; }
+.sprite.none { width: 120px; height: 120px; display: grid; place-items: center; color: var(--muted); font-size: 13px; text-align: center; }
+.sparkles { position: absolute; inset: 0; pointer-events: none; }
+.sparkles i { position: absolute; width: 14px; height: 14px; color: var(--accent); opacity: 0; }
+.sparkles i svg { width: 100%; height: 100%; display: block; }
+.sparkles.go i { animation: twinkle .9s ease-out forwards; }
+.sparkles i:nth-child(1) { left: 34%; top: 30%; animation-delay: 0s; }
+.sparkles i:nth-child(2) { left: 62%; top: 22%; animation-delay: .12s; width: 18px; height: 18px; }
+.sparkles i:nth-child(3) { left: 70%; top: 52%; animation-delay: .24s; }
+.sparkles i:nth-child(4) { left: 28%; top: 58%; animation-delay: .18s; width: 10px; height: 10px; }
+.sparkles i:nth-child(5) { left: 48%; top: 14%; animation-delay: .3s; width: 11px; height: 11px; }
+@keyframes twinkle { 0% { opacity: 0; transform: scale(.2) rotate(0); } 40% { opacity: 1; transform: scale(1.2) rotate(45deg); } 100% { opacity: 0; transform: scale(.6) rotate(90deg); } }
+.found-ribbon { position: absolute; top: 14px; left: 14px; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; }
+
+.readout { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+.title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.title-row h2 { font-size: 24px; font-weight: 700; letter-spacing: -.01em; min-width: 0; overflow-wrap: anywhere; }
+.game-chip { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--night); border: 1px solid currentColor; border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+.count-row { display: flex; align-items: baseline; gap: 10px; }
+.count { font-family: var(--font-display); font-size: clamp(64px, 20vw, 88px); font-weight: 800; line-height: .9; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.count.bump { animation: bump .15s ease-out; }
+@keyframes bump { from { transform: translateY(-3px); } to { transform: none; } }
+.count-unit { color: var(--muted); font-weight: 500; }
+.bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: inherit; transition: width .25s; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stats div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.stats b { font-family: var(--font-display); font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stats span { font-size: 12px; color: var(--muted); }
+
+.taps { display: grid; grid-template-columns: 76px 1fr; gap: 10px; }
+.tap {
+  border: 0; border-radius: 18px; height: 84px; font-family: var(--font-display); font-weight: 800; font-size: 26px;
+  touch-action: manipulation; user-select: none; -webkit-user-select: none; transition: transform .06s;
+}
+.tap:active:not(:disabled), .tap.pressed { transform: scale(.97); }
+.tap.plus { background: var(--accent); color: var(--accent-ink); box-shadow: 0 4px 0 var(--accent-deep); }
+.tap.plus small { display: block; font-family: var(--font-body); font-size: 13px; font-weight: 500; margin-top: 2px; }
+.tap.minus { background: var(--surface); border: 1px solid var(--line); color: var(--ink); font-size: 22px; }
+.found-btn { border: 0; border-radius: 14px; padding: 12px; font-weight: 700; background: var(--night); color: var(--bg); }
+.hint { font-size: 13px; color: var(--muted); text-align: center; margin: -6px 0 0; }
+kbd { font-family: var(--font-body); font-size: 12px; font-weight: 700; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--surface); }
+
+/* Panels */
+.panel { display: flex; flex-direction: column; gap: 10px; }
+.panel h2 { font-size: 17px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.link-btn { background: none; border: 0; color: var(--night); font-family: var(--font-body); font-weight: 700; font-size: 14px; padding: 4px; }
+.hunts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hunt-row { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; text-align: left; display: grid; grid-template-columns: 48px 1fr auto; gap: 0 12px; padding: 8px 14px 8px 8px; align-items: center; }
+.hunt-row[aria-current="true"] { border-color: var(--accent-deep); box-shadow: 0 0 0 1px var(--accent-deep); }
+.hunt-row .thumb { width: 48px; height: 48px; display: grid; place-items: center; overflow: hidden; }
+.hunt-row .txt { min-width: 0; display: flex; flex-direction: column; }
+.hunt-row .n { font-weight: 700; overflow-wrap: anywhere; }
+.hunt-row .meta { font-size: 13px; color: var(--muted); }
+.hunt-row .c { font-family: var(--font-display); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chip { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 0 7px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); margin-left: 6px; vertical-align: 1px; }
+.empty { color: var(--muted); font-size: 14px; margin: 0; background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 14px; }
+
+form.new { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: grid; grid-template-columns: 1fr 88px; gap: 12px; }
+form.new .full { grid-column: 1 / -1; }
+.preview { grid-row: 1 / span 2; grid-column: 2; align-self: center; width: 88px; height: 88px; border-radius: 14px; background: linear-gradient(180deg, var(--sky-1), var(--sky-2)); display: grid; place-items: center; overflow: hidden; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.field input, .field select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; width: 100%; }
+.field .err { font-size: 13px; color: var(--danger); }
+.combo { position: relative; }
+.suggest { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; width: max(100%, 240px); max-width: calc(100vw - 48px); max-height: 264px; overflow-y: auto; -webkit-overflow-scrolling: touch; margin: 0; padding: 4px; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 28px rgba(0, 0, 0, .22); }
+.suggest li { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 8px; cursor: pointer; min-height: 44px; }
+.suggest li[aria-selected="true"], .suggest li:active { background: var(--bg); }
+.suggest .thumb { width: 40px; height: 40px; display: grid; place-items: center; overflow: hidden; }
+.suggest .nm { font-weight: 700; min-width: 0; }
+.suggest .no { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.suggest .none { display: block; color: var(--muted); font-size: 14px; cursor: default; padding: 10px; min-height: 0; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.solid { background: var(--ink); color: var(--bg); border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 700; }
+.ghost { background: none; border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; font-weight: 500; }
+.danger { color: var(--danger); border-color: var(--danger); }
+.danger-solid { background: var(--danger); color: #fff; border: 0; border-radius: 10px; padding: 10px 14px; font-weight: 700; }
+
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tools input { width: 110px; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); }
+.note { font-size: 13px; color: var(--muted); flex-basis: 100%; margin: 0; }
+.tip { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; font-size: 14px; color: var(--muted); max-width: 65ch; }
+.tip b { color: var(--ink); }
+.tip p { margin: 0; }
+.tip p + p { margin-top: 8px; }
+.status { font-size: 12.5px; color: var(--muted); text-align: center; margin: 0; }
+@media (max-width: 360px) { .taps { grid-template-columns: 64px 1fr; } .stats b { font-size: 17px; } }
+@media (prefers-reduced-motion: reduce) { .count.bump, .sparkles.go i { animation: none; } .bar > i, .tap { transition: none; } }
+</style>
+
+<main>
+  <header>
+    <h1><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1l2.6 8.4L23 12l-8.4 2.6L12 23l-2.6-8.4L1 12l8.4-2.6z"/></svg>Shiny Reset Counter</h1>
+    <button class="quiet" type="button" id="newBtnTop">New hunt</button>
+  </header>
+
+  <form class="new" id="newForm" hidden>
+    <div class="field"><label for="fGame">Game</label>
+      <select id="fGame">
+        <optgroup label="Gen 3 · Game Boy Advance">
+          <option>Emerald</option><option>Ruby</option><option>Sapphire</option><option>FireRed</option><option>LeafGreen</option>
+        </optgroup>
+        <optgroup label="Gen 2 · Game Boy Color">
+          <option>Crystal</option><option>Gold</option><option>Silver</option>
+        </optgroup>
+        <optgroup label="Gen 1 · Game Boy (shiny after trading to Gen 2)">
+          <option>Red</option><option>Blue</option><option>Yellow</option>
+        </optgroup>
+      </select></div>
+    <div class="field"><label for="fMon">Pokémon</label>
+      <div class="combo">
+        <input id="fMon" required autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="done" placeholder="Start typing, e.g. Rayquaza" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="monSug">
+        <ul class="suggest" id="monSug" role="listbox" aria-label="Matching Pokémon" hidden></ul>
+      </div>
+      <span class="err" id="monErr" hidden></span></div>
+    <div class="preview" id="fPreview" aria-hidden="true"></div>
+    <div class="field"><label for="fOdds">Odds</label>
+      <select id="fOdds"></select></div>
+    <div class="field"><label for="fStart">Resets so far</label><input id="fStart" type="number" min="0" step="1" value="0" inputmode="numeric"></div>
+    <div class="actions full"><button class="solid" type="submit">Start hunt</button><button class="ghost" type="button" id="cancelNew">Cancel</button></div>
+  </form>
+
+  <div class="stage">
+    <div class="scene">
+      <div class="platform" aria-hidden="true"></div>
+      <div class="sprite none" id="sprite" role="img" aria-label="No hunt selected">Pick a Pokémon<br>to hunt</div>
+      <div class="sparkles" id="sparkles" aria-hidden="true"></div>
+      <span class="found-ribbon" id="ribbon" hidden>Shiny found</span>
+    </div>
+    <div class="readout" aria-live="polite">
+      <div class="title-row"><h2 id="monName">No hunt yet</h2><span class="game-chip" id="gameChip" hidden></span></div>
+      <div class="count-row"><span class="count" id="count">0</span><span class="count-unit" id="unit">resets</span></div>
+      <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+      <div class="stats">
+        <div><b id="stChance">0%</b><span>chance it showed by now</span></div>
+        <div><b id="stOdds">1/8192</b><span>odds per reset</span></div>
+        <div><b id="stToday">0</b><span>resets today</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="taps">
+    <button class="tap minus" id="minusBtn" type="button" aria-label="Take back one reset">−1</button>
+    <button class="tap plus" id="plusBtn" type="button" aria-label="Add one reset">+1<small>Tap after every reset</small></button>
+  </div>
+  <button class="found-btn" id="foundBtn" type="button">It's shiny! Mark as found</button>
+  <p class="hint">On a keyboard: <kbd>Space</kbd> adds one, <kbd>Backspace</kbd> takes one back.</p>
+
+  <section class="panel">
+    <h2>Your hunts <button class="link-btn" type="button" id="newBtn">+ New hunt</button></h2>
+    <ul class="hunts" id="huntList"></ul>
+    <p class="empty" id="emptyMsg">No hunts yet. Tap <b>New hunt</b>, pick the game and the Pokémon, and its shiny sprite shows up here.</p>
+  </section>
+
+  <section class="panel" id="manage" hidden>
+    <h2>This hunt</h2>
+    <div class="tools">
+      <button class="ghost" type="button" id="setBtn">Set count</button>
+      <span id="setWrap" hidden><input id="setInput" type="number" min="0" step="1" inputmode="numeric" aria-label="New count"> <button class="solid" type="button" id="setSave">Save</button></span>
+      <button class="ghost" type="button" id="reopenBtn" hidden>Keep hunting</button>
+      <button class="ghost danger" type="button" id="delBtn">Delete hunt</button>
+      <span id="confirmDel" hidden><button class="danger-solid" type="button" id="delYes">Delete for good</button> <button class="ghost" type="button" id="delNo">Keep it</button></span>
+      <p class="note" id="startedNote"></p>
+    </div>
+  </section>
+
+  <div class="tip" id="tip"></div>
+  <p class="status" id="status">Connecting…</p>
+</main>
+
+<script>
+(function () {
+  const NAMES = __NAMES__;
+  const GAMES = {
+    Emerald: 3, Ruby: 3, Sapphire: 3, FireRed: 3, LeafGreen: 3,
+    Crystal: 2, Gold: 2, Silver: 2,
+    Red: 1, Blue: 1, Yellow: 1
+  };
+  const DEX_MAX = { 1: 151, 2: 251, 3: 386 };
+  const ATLAS = {
+    2: { src: "shiny-gen2.png", cell: 56, w: 1120, h: 728, scale: 2.5 },
+    3: { src: "shiny-gen3.png", cell: 64, w: 1280, h: 1280, scale: 2.5 }
+  };
+  const TIPS = {
+    1: "<p><b>Gen 1 has no shiny sprites.</b> A Pokémon's DVs still decide whether it turns shiny once you trade it to Gold, Silver or Crystal. You need a Defense, Speed and Special DV of 10, and an Attack DV of 2, 3, 6, 7, 10, 11, 14 or 15. Check DVs with a stat calculator, or trade it up through Time Capsule to see the sprite.</p>",
+    2: "<p><b>How Gen 2 decides:</b> a Pokémon is shiny when its Defense, Speed and Special DVs are all 10 and its Attack DV is 2, 3, 6, 7, 10, 11, 14 or 15. That works out to 1 in 8192.</p><p>Breeding with a shiny parent passes on its DVs, which raises the odds to 1 in 64.</p>",
+    3: "<p><b>How Gen 3 decides:</b> the game combines your Trainer ID, your Secret ID and the Pokémon's personality value. If the result is below 8, it's shiny: 1 in 8192.</p><p><b>Emerald tip:</b> Emerald's random number generator starts from the same seed every time it boots. Vary how long you wait before each encounter, or you'll keep getting the same Pokémon. Ruby and Sapphire do the same once the cartridge's internal battery runs dry.</p>"
+  };
+  const ODDS_OPTS = {
+    1: [[8192, "1/8192 · standard"]],
+    2: [[8192, "1/8192 · standard"], [64, "1/64 · breeding with a shiny parent"]],
+    3: [[8192, "1/8192 · standard"]]
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const state = { hunts: {}, activeId: null, store: null, mode: "loading" };
+  const pending = {}, inflight = {}, dirty = new Set();
+  const LS_KEY = "shiny-counter-hunts", LS_ACTIVE = "shiny-counter-active";
+  const STAR = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 1l2.6 8.4L23 12l-8.4 2.6L12 23l-2.6-8.4L1 12l8.4-2.6z"/></svg>';
+  $("sparkles").innerHTML = ("<i>" + STAR + "</i>").repeat(5);
+
+  const todayKey = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+  const fmt = (n) => n.toLocaleString();
+  const chance = (n, odds) => 1 - Math.pow(1 - 1 / odds, n);
+  const pct = (p) => p >= 0.9995 ? ">99.9%" : (p * 100).toFixed(p < 0.1 ? 2 : 1) + "%";
+  const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const norm = (s) => s.toLowerCase().replace(/[^a-z0-9♀♂]/g, "");
+  const NAME_IDX = new Map(NAMES.map((n, i) => [norm(n), i + 1]));
+  NAME_IDX.set("nidoranf", 29); NAME_IDX.set("nidoranm", 32);
+  const genOf = (game) => GAMES[game] || 2;
+  function dexFor(name, gen) {
+    const d = NAME_IDX.get(norm(name || ""));
+    return d && d <= DEX_MAX[gen] ? d : null;
+  }
+
+  // Draws a shiny sprite into el. Gen 1 games use the Crystal sprite, since that's where the shiny shows.
+  function drawSprite(el, dex, gen, scale) {
+    const a = ATLAS[gen === 3 ? 3 : 2];
+    if (!dex || (gen !== 3 && dex > 251)) { el.style.cssText = ""; return false; }
+    const s = scale || a.scale, i = dex - 1;
+    el.style.width = a.cell * s + "px"; el.style.height = a.cell * s + "px";
+    el.style.backgroundImage = "url(" + a.src + ")";
+    el.style.backgroundSize = a.w * s + "px " + a.h * s + "px";
+    el.style.backgroundPosition = -(i % 20) * a.cell * s + "px " + -Math.floor(i / 20) * a.cell * s + "px";
+    el.style.imageRendering = "pixelated";
+    el.style.backgroundRepeat = "no-repeat";
+    return true;
+  }
+
+  // Swaps the still sprite for its animated one once the GIF loads: Crystal's own animation for
+  // Gen 1-2, Black & White's for Gen 3 (Emerald's animations aren't available as files).
+  const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let animKey = null;
+  function animate(el, dex, gen) {
+    const key = (gen === 3 ? "gen3/" : "gen2/") + dex;
+    if (reduceMotion || !dex) return;
+    const img = new Image();
+    img.alt = ""; img.decoding = "async";
+    img.style.cssText = "display:block;image-rendering:pixelated;";
+    animKey = key;
+    img.onload = () => {
+      if (animKey !== key || !el.isConnected) return;
+      const s = gen === 3 ? 1.8 : 2.5;
+      img.width = img.naturalWidth * s; img.height = img.naturalHeight * s;
+      el.style.backgroundImage = "none";
+      el.style.width = img.width + "px"; el.style.height = img.height + "px";
+      el.replaceChildren(img);
+    };
+    if (gen === 3) { img.src = "anim/" + key + ".gif"; return; }
+    // Crystal's animations are small, so they ship together in one file.
+    gen2Anims = gen2Anims || fetch("anim/gen2.json").then((r) => r.json()).catch(() => { gen2Anims = null; return {}; });
+    gen2Anims.then((all) => { if (all[dex] && animKey === key) img.src = "data:image/gif;base64," + all[dex]; });
+  }
+  let gen2Anims = null;
+
+  function sortedHunts() { return Object.entries(state.hunts).sort((a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0)); }
+  function active() { return state.activeId ? state.hunts[state.activeId] : null; }
+
+  function render() {
+    const h = active();
+    const gen = h ? genOf(h.game) : 3;
+    const dex = h ? (h.dex || dexFor(h.name, gen)) : null;
+    const sp = $("sprite");
+    const spriteKey = h ? gen + "/" + dex + "/" + h.name : "";
+    // Only redraw when the hunt changes, so taps don't restart the animation.
+    if (sp.dataset.key !== spriteKey) {
+      sp.dataset.key = spriteKey;
+      sp.textContent = "";
+      if (h && drawSprite(sp, dex, gen)) {
+        sp.classList.remove("none"); sp.setAttribute("aria-label", "Shiny " + h.name);
+        animate(sp, dex, gen);
+      } else {
+        sp.style.cssText = ""; sp.classList.add("none");
+        sp.innerHTML = h ? "No sprite for<br>this name" : "Pick a Pokémon<br>to hunt";
+        sp.setAttribute("aria-label", h ? h.name : "No hunt selected");
+      }
+    }
+    $("ribbon").hidden = !(h && h.foundAt);
+    $("monName").textContent = h ? h.name : "No hunt yet";
+    $("gameChip").hidden = !h; $("gameChip").textContent = h ? h.game : "";
+    $("count").textContent = h ? fmt(h.count) : "0";
+    $("unit").textContent = h && h.count === 1 ? "reset" : "resets";
+    const odds = h ? h.odds : 8192;
+    const p = h ? chance(h.count, odds) : 0;
+    $("stChance").textContent = pct(p);
+    $("stOdds").textContent = "1/" + odds;
+    $("stToday").textContent = h ? fmt((h.days && h.days[todayKey()]) || 0) : "0";
+    $("bar").style.width = Math.min(100, p * 100) + "%";
+    $("plusBtn").disabled = $("minusBtn").disabled = $("foundBtn").disabled = !h || !!h.foundAt;
+    $("tip").innerHTML = TIPS[gen];
+
+    const list = $("huntList");
+    list.replaceChildren();
+    for (const [id, x] of sortedHunts()) {
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "hunt-row";
+      b.setAttribute("aria-current", id === state.activeId ? "true" : "false");
+      const th = document.createElement("span"); th.className = "thumb";
+      const ts = document.createElement("span"); ts.className = "sprite";
+      const g = genOf(x.game);
+      if (drawSprite(ts, x.dex || dexFor(x.name, g), g, g === 3 ? 0.75 : 0.857)) th.appendChild(ts);
+      const tx = document.createElement("span"); tx.className = "txt";
+      const n = document.createElement("span"); n.className = "n"; n.textContent = x.name;
+      if (x.foundAt) { const c = document.createElement("span"); c.className = "chip"; c.textContent = "Shiny"; n.appendChild(c); }
+      const m = document.createElement("span"); m.className = "meta";
+      m.textContent = x.game + " · 1/" + x.odds + (x.foundAt ? " · found " + new Date(x.foundAt).toLocaleDateString() : "");
+      tx.append(n, m);
+      const c = document.createElement("span"); c.className = "c"; c.textContent = fmt(x.count);
+      b.append(th, tx, c);
+      b.addEventListener("click", () => { state.activeId = id; lsSet(LS_ACTIVE, id); hideTools(); render(); });
+      li.appendChild(b); list.appendChild(li);
+    }
+    $("emptyMsg").hidden = Object.keys(state.hunts).length > 0;
+    $("manage").hidden = !h;
+    $("reopenBtn").hidden = !(h && h.foundAt);
+    $("startedNote").textContent = h ? "Started " + new Date(h.startedAt).toLocaleDateString() + "." : "";
+  }
+
+  function bump() { const el = $("count"); el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+  function sparkle() { const el = $("sparkles"); el.classList.remove("go"); void el.offsetWidth; el.classList.add("go"); }
+
+  // ---- saving ----
+  function setStatus(t) { $("status").textContent = t; }
+  function save(id) {
+    dirty.add(id);
+    if (state.mode !== "db") { lsSet(LS_KEY, JSON.stringify(state.hunts)); dirty.delete(id); return; }
+    clearTimeout(pending[id]);
+    pending[id] = setTimeout(() => flush(id), 500);
+  }
+  function flush(id) {
+    clearTimeout(pending[id]); delete pending[id];
+    const ref = state.store.doc(id);
+    inflight[id] = (inflight[id] || Promise.resolve()).then(async () => {
+      const h = state.hunts[id];
+      try {
+        if (!h) await ref.delete(); else await ref.set(Object.assign({}, h));
+        if (!pending[id]) dirty.delete(id);
+        setStatus("Saved to your account.");
+      } catch (e) {
+        setStatus("Couldn't save just now (" + (e && e.code || "error") + "). Your count stays on screen and saves on your next tap.");
+      }
+    });
+  }
+  const flushAll = () => { for (const id of Object.keys(pending)) flush(id); };
+  window.addEventListener("pagehide", flushAll);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) flushAll(); });
+
+  function change(delta) {
+    const h = active(); if (!h || h.foundAt) return;
+    const next = Math.max(0, h.count + delta);
+    if (next === h.count) return;
+    h.count = next;
+    const k = todayKey(); h.days = Object.assign({}, h.days);
+    h.days[k] = Math.max(0, (h.days[k] || 0) + delta);
+    const keys = Object.keys(h.days).sort(); while (keys.length > 60) delete h.days[keys.shift()];
+    h.updatedAt = Date.now();
+    save(state.activeId); render(); if (delta > 0) bump();
+    keepAwake();
+  }
+
+  let wake = null;
+  async function keepAwake() {
+    if (wake || !("wakeLock" in navigator)) return;
+    try { wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release", () => { wake = null; }); } catch (e) {}
+  }
+
+  // ---- controls ----
+  $("plusBtn").addEventListener("click", () => change(1));
+  $("minusBtn").addEventListener("click", () => change(-1));
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input, select, textarea")) return;
+    if (e.key === " " && e.target.closest && e.target.closest("button")) return; // the focused button clicks itself
+    if (e.key === " " || e.key === "ArrowUp") { e.preventDefault(); change(1); flash("plusBtn"); }
+    else if (e.key === "Backspace" || e.key === "ArrowDown") { e.preventDefault(); change(-1); flash("minusBtn"); }
+  });
+  function flash(id) { const b = $(id); b.classList.add("pressed"); setTimeout(() => b.classList.remove("pressed"), 90); }
+
+  $("foundBtn").addEventListener("click", () => {
+    const h = active(); if (!h || h.foundAt) return;
+    h.foundAt = Date.now(); h.updatedAt = Date.now(); save(state.activeId); render(); sparkle();
+    setStatus("Congratulations! Shiny " + h.name + " after " + fmt(h.count) + " resets.");
+  });
+  $("reopenBtn").addEventListener("click", () => {
+    const h = active(); if (!h) return;
+    delete h.foundAt; h.updatedAt = Date.now(); save(state.activeId); render();
+  });
+
+  // ---- new hunt form ----
+  function fillForGame() {
+    const gen = genOf($("fGame").value);
+    const sel = $("fOdds"); sel.replaceChildren();
+    for (const [v, label] of ODDS_OPTS[gen]) { const o = document.createElement("option"); o.value = v; o.textContent = label; sel.appendChild(o); }
+    updatePreview();
+  }
+  function updatePreview() {
+    const gen = genOf($("fGame").value), name = $("fMon").value.trim();
+    const pv = $("fPreview"); pv.replaceChildren();
+    const s = document.createElement("span"); s.className = "sprite";
+    if (drawSprite(s, dexFor(name, gen), gen, gen === 3 ? 1.25 : 1.4)) pv.appendChild(s);
+    $("monErr").hidden = true;
+  }
+  // Suggestion list for the Pokémon field. Built by hand because iPhone Safari doesn't pop up a datalist.
+  let sugIdx = -1, sugItems = [];
+  function matches(q, gen) {
+    const n = norm(q), max = DEX_MAX[gen], starts = [], within = [];
+    for (let i = 0; i < max; i++) {
+      const k = norm(NAMES[i]);
+      if (!n || k.startsWith(n)) starts.push(i + 1); else if (k.includes(n)) within.push(i + 1);
+    }
+    return starts.concat(within).slice(0, 40);
+  }
+  function showSuggestions() {
+    const gen = genOf($("fGame").value), q = $("fMon").value.trim();
+    const list = $("monSug"); list.replaceChildren();
+    sugItems = matches(q, gen); sugIdx = -1;
+    if (q && sugItems.length === 1 && norm(NAMES[sugItems[0] - 1]) === norm(q)) { hideSuggestions(); return; }
+    if (!sugItems.length) {
+      const li = document.createElement("li"); li.className = "none";
+      li.textContent = "No Pokémon in " + $("fGame").value + " matches “" + q + "”.";
+      list.appendChild(li);
+    }
+    sugItems.forEach((dex, i) => {
+      const li = document.createElement("li"); li.role = "option"; li.id = "sug" + i;
+      const th = document.createElement("span"); th.className = "thumb";
+      const sp = document.createElement("span"); sp.className = "sprite";
+      if (drawSprite(sp, dex, gen, gen === 3 ? 0.625 : 0.714)) th.appendChild(sp);
+      const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = NAMES[dex - 1];
+      const no = document.createElement("span"); no.className = "no"; no.textContent = "#" + String(dex).padStart(3, "0");
+      li.append(th, nm, no);
+      li.addEventListener("pointerdown", (e) => e.preventDefault()); // keep the keyboard up
+      li.addEventListener("click", () => pickSuggestion(dex));
+      list.appendChild(li);
+    });
+    list.scrollTop = 0; list.hidden = false;
+    $("fMon").setAttribute("aria-expanded", "true");
+  }
+  function hideSuggestions() {
+    $("monSug").hidden = true; sugIdx = -1;
+    $("fMon").setAttribute("aria-expanded", "false"); $("fMon").removeAttribute("aria-activedescendant");
+  }
+  function pickSuggestion(dex) {
+    $("fMon").value = NAMES[dex - 1]; hideSuggestions(); updatePreview();
+  }
+  function moveSuggestion(step) {
+    if (!sugItems.length) return;
+    sugIdx = (sugIdx + step + sugItems.length) % sugItems.length;
+    [...$("monSug").children].forEach((li, i) => li.setAttribute("aria-selected", i === sugIdx ? "true" : "false"));
+    const cur = $("sug" + sugIdx); cur.scrollIntoView({ block: "nearest" });
+    $("fMon").setAttribute("aria-activedescendant", cur.id);
+  }
+  $("fMon").addEventListener("input", () => { updatePreview(); showSuggestions(); });
+  $("fMon").addEventListener("focus", showSuggestions);
+  $("fMon").addEventListener("blur", () => setTimeout(hideSuggestions, 150));
+  $("fMon").addEventListener("keydown", (e) => {
+    if ($("monSug").hidden) { if (e.key === "ArrowDown") { showSuggestions(); e.preventDefault(); } return; }
+    if (e.key === "ArrowDown") { moveSuggestion(1); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { moveSuggestion(-1); e.preventDefault(); }
+    else if (e.key === "Escape") { hideSuggestions(); }
+    else if (e.key === "Enter" && sugItems.length && (sugIdx >= 0 || sugItems.length === 1)) { pickSuggestion(sugItems[Math.max(sugIdx, 0)]); e.preventDefault(); }
+  });
+
+  function openForm() {
+    const f = $("newForm");
+    f.hidden = false; fillForGame();
+    $("fMon").focus({ preventScroll: true });
+    f.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  }
+  $("newBtn").addEventListener("click", openForm);
+  $("newBtnTop").addEventListener("click", openForm);
+  $("cancelNew").addEventListener("click", () => { $("newForm").hidden = true; hideSuggestions(); });
+  $("fGame").addEventListener("change", () => { fillForGame(); if (!$("monSug").hidden) showSuggestions(); });
+  $("newForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const game = $("fGame").value, gen = genOf(game);
+    const typed = $("fMon").value.trim();
+    const dex = dexFor(typed, gen);
+    if (!dex) {
+      $("monErr").textContent = typed ? typed + " isn't in " + game + "'s Pokédex. Pick a name from the list." : "Type a Pokémon's name.";
+      $("monErr").hidden = false; $("fMon").focus(); return;
+    }
+    const start = Math.max(0, parseInt($("fStart").value, 10) || 0);
+    const id = "h" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const now = Date.now();
+    state.hunts[id] = { name: NAMES[dex - 1], dex, game, odds: Number($("fOdds").value), count: start, days: {}, startedAt: now, updatedAt: now };
+    state.activeId = id; lsSet(LS_ACTIVE, id);
+    $("newForm").reset(); $("newForm").hidden = true; $("fPreview").replaceChildren();
+    save(id); render();
+  });
+
+  // ---- manage ----
+  function hideTools() { $("confirmDel").hidden = true; $("delBtn").hidden = false; $("setWrap").hidden = true; $("setBtn").hidden = false; }
+  $("delBtn").addEventListener("click", () => { $("confirmDel").hidden = false; $("delBtn").hidden = true; });
+  $("delNo").addEventListener("click", hideTools);
+  $("delYes").addEventListener("click", () => {
+    const id = state.activeId; if (!id) return;
+    delete state.hunts[id];
+    const first = sortedHunts()[0]; state.activeId = first ? first[0] : null;
+    if (state.activeId) lsSet(LS_ACTIVE, state.activeId);
+    hideTools(); save(id); render();
+  });
+  $("setBtn").addEventListener("click", () => {
+    const h = active(); if (!h) return;
+    $("setInput").value = h.count; $("setWrap").hidden = false; $("setBtn").hidden = true; $("setInput").focus();
+  });
+  $("setSave").addEventListener("click", () => {
+    const h = active(); if (!h) return;
+    h.count = Math.max(0, parseInt($("setInput").value, 10) || 0); h.updatedAt = Date.now();
+    save(state.activeId); hideTools(); render();
+  });
+
+  // ---- boot ----
+  function pickActive() {
+    const saved = lsGet(LS_ACTIVE);
+    if (saved && state.hunts[saved]) state.activeId = saved;
+    else { const f = sortedHunts()[0]; state.activeId = f ? f[0] : null; }
+  }
+  render();
+  (async () => {
+    let db = null, user = null;
+    try { [db, user] = await Promise.all([window.claude?.use?.("db"), window.claude?.use?.("user")]); } catch (e) {}
+    const uid = user ? await user.id().catch(() => null) : null;
+    if (!db || !uid) {
+      state.mode = "local";
+      try { state.hunts = JSON.parse(lsGet(LS_KEY) || "{}") || {}; } catch (e) { state.hunts = {}; }
+      pickActive(); render();
+      setStatus("Saving on this device only. Sign in to claude.ai to keep your counts across devices.");
+      return;
+    }
+    state.mode = "db";
+    state.store = db.collection("data/users/" + uid + "/hunts");
+    let first = true;
+    state.store.onSnapshot((snap) => {
+      const next = {};
+      for (const d of snap.docs) next[d.id] = Object.assign({}, d.data());
+      // Unsaved local edits win over what the server sent.
+      for (const id of dirty) { if (state.hunts[id]) next[id] = state.hunts[id]; else delete next[id]; }
+      state.hunts = next;
+      if (first || !state.hunts[state.activeId]) pickActive();
+      first = false;
+      render();
+      setStatus("Synced to your account. Only you can see your hunts.");
+    }, (e) => {
+      setStatus("Lost the connection to your saved hunts (" + (e && e.code || "error") + "). Reload to try again.");
+    });
+  })();
+})();
+</script>
