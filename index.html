@@ -261,6 +261,7 @@ form.new .full { grid-column: 1 / -1; }
 
   <div class="tip" id="tip"></div>
   <p class="status" id="status">Saved on this device.</p>
+  <label id="hapticTick" aria-hidden="true" style="position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none"><input type="checkbox" switch tabindex="-1"></label>
 </main>
 
 <script>
@@ -451,8 +452,23 @@ form.new .full { grid-column: 1 / -1; }
     h.days[k] = Math.max(0, (h.days[k] || 0) + delta);
     const keys = Object.keys(h.days).sort(); while (keys.length > 60) delete h.days[keys.shift()];
     h.updatedAt = Date.now();
-    save(state.activeId); render(); if (delta > 0) bump();
+    save(state.activeId); render(); tick(); if (delta > 0) bump();
     keepAwake();
+  }
+
+  // Haptics. Android vibrates directly. iPhone Safari has no vibration API, but since iOS 18
+  // flipping a switch control plays a system tick, so we flip a hidden one.
+  const canVibrate = typeof navigator.vibrate === "function";
+  function flipSwitch() {
+    const had = document.activeElement;
+    $("hapticTick").click();
+    if (had && had !== document.activeElement && had.focus) had.focus({ preventScroll: true });
+    if (document.activeElement && document.activeElement.closest("#hapticTick")) document.activeElement.blur();
+  }
+  function tick() { if (canVibrate) navigator.vibrate(12); else flipSwitch(); }
+  function celebrate() {
+    if (canVibrate) { navigator.vibrate([40, 70, 40, 70, 120]); return; }
+    [0, 110, 220].forEach((ms) => setTimeout(flipSwitch, ms));
   }
 
   let wake = null;
@@ -474,7 +490,7 @@ form.new .full { grid-column: 1 / -1; }
 
   $("foundBtn").addEventListener("click", () => {
     const h = active(); if (!h || h.foundAt) return;
-    h.foundAt = Date.now(); h.updatedAt = Date.now(); save(state.activeId); render(); sparkle();
+    h.foundAt = Date.now(); h.updatedAt = Date.now(); save(state.activeId); render(); sparkle(); celebrate();
     setStatus("Congratulations! Shiny " + h.name + " after " + fmt(h.count) + " resets.");
   });
   $("reopenBtn").addEventListener("click", () => {
