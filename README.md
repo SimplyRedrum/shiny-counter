@@ -1,5 +1,7 @@
 # Shiny Reset Counter
 
+**Open the app: https://simplyredrum.github.io/shiny-counter/**
+
 A tap counter for soft-reset shiny hunting in Pokémon Gen 1–3 (Red/Blue/Yellow, Gold/Silver/Crystal, Ruby/Sapphire/Emerald, FireRed/LeafGreen).
 
 - Shows the animated shiny sprite of the Pokémon you're hunting
