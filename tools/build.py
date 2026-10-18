@@ -9,9 +9,10 @@ def rep(old, new):
     global t
     assert old in t, old[:60]
     t = t.replace(old, new, 1)
+# Sprite sheets ship as their own files so index.html stays small and updates arrive quickly.
+import shutil
 for f in ("shiny-gen2.png", "shiny-gen3.png"):
-    b = base64.b64encode(open(SRC + "/" + f, "rb").read()).decode()
-    rep('src: "%s"' % f, 'src: "data:image/png;base64,%s"' % b)
+    shutil.copyfile(SRC + "/" + f, A + "/" + f)
 head = '''<!doctype html>
 <html lang="en">
 <head>
@@ -69,9 +70,9 @@ t = t.replace('setStatus("Saved to your account.");', 'setStatus("Saved on this 
 t += "\n</body>\n</html>\n"
 open(A + "/index.html", "w", encoding="utf8").write(t)
 open(A + "/sw.js", "w").write('''// Caches the app so it opens without a connection. Sprite animations are cached as they're viewed.
-const CACHE = "shiny-counter-v4";
+const CACHE = "shiny-counter-v5";
 const SPRITES = "shiny-counter-sprites"; // kept across app updates, since sprites never change
-const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "anim/gen2.json"];
+const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "shiny-gen2.png", "shiny-gen3.png", "anim/gen2.json"];
 const WAIT_MS = 2500; // on a weak signal, use the saved copy after this long
 
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES))); self.skipWaiting(); });

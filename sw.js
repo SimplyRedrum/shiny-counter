@@ -1,7 +1,7 @@
 // Caches the app so it opens without a connection. Sprite animations are cached as they're viewed.
-const CACHE = "shiny-counter-v4";
+const CACHE = "shiny-counter-v5";
 const SPRITES = "shiny-counter-sprites"; // kept across app updates, since sprites never change
-const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "anim/gen2.json"];
+const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "shiny-gen2.png", "shiny-gen3.png", "anim/gen2.json"];
 const WAIT_MS = 2500; // on a weak signal, use the saved copy after this long
 
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES))); self.skipWaiting(); });
