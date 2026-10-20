@@ -264,14 +264,17 @@ form.new .full { grid-column: 1 / -1; }
 
   <section class="panel" id="backup">
     <h2>Backup</h2>
-    <p class="note" style="margin:0">Your hunts are saved on this device. Copy a backup now and then, and paste it here to restore on a new phone.</p>
+    <p class="note" style="margin:0">Your hunts are saved on this device. Save a backup to the Files app now and then, so you can restore it if the app is deleted or you change phones.</p>
+    <div class="actions"><button class="solid" type="button" id="saveFile">Save backup to Files</button><button class="ghost" type="button" id="openFile">Restore from a file</button></div>
+    <input type="file" id="fileInput" accept=".json,application/json,text/plain" hidden>
+    <p class="note" style="margin:4px 0 0">Or copy the backup as text, for example into Notes:</p>
     <textarea id="backupText" rows="3" aria-label="Backup code" style="font:13px/1.4 ui-monospace,monospace;width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);resize:vertical" placeholder="Paste a backup here to restore it"></textarea>
     <div class="actions"><button class="ghost" type="button" id="copyBackup">Copy backup</button><button class="ghost" type="button" id="restoreBackup">Restore from pasted backup</button></div>
   </section>
 
   <div class="tip" id="tip"></div>
   <p class="status" id="status">Saved on this device.</p>
-  <p class="status" id="version">Version 1.7</p>
+  <p class="status" id="version">Version 1.8</p>
 </main>
 
 <script>
@@ -674,14 +677,51 @@ form.new .full { grid-column: 1 / -1; }
     const fallback = () => { $("backupText").select(); setStatus("Backup is in the box above. Select it and copy."); };
     try { navigator.clipboard.writeText(code).then(done, fallback); } catch (e) { fallback(); }
   });
-  $("restoreBackup").addEventListener("click", () => {
+  // Restoring adds the backup's hunts; a hunt that exists on both sides takes the backup's copy.
+  function restoreFrom(text, badMessage) {
     let data;
-    try { data = JSON.parse($("backupText").value.trim()); } catch (e) { data = null; }
-    if (!data || typeof data.hunts !== "object") { setStatus("That doesn't look like a backup. Paste the whole code from Copy backup."); return; }
+    try { data = JSON.parse(String(text).trim()); } catch (e) { data = null; }
+    if (!data || !data.hunts || typeof data.hunts !== "object") { setStatus(badMessage); return false; }
     Object.assign(state.hunts, data.hunts);
     lsSet(LS_KEY, JSON.stringify(state.hunts));
-    pickActive(); render(); $("backupText").value = "";
-    setStatus("Restored " + Object.keys(data.hunts).length + " hunts.");
+    pickActive(); render();
+    const n = Object.keys(data.hunts).length;
+    setStatus("Restored " + n + (n === 1 ? " hunt." : " hunts."));
+    return true;
+  }
+  $("restoreBackup").addEventListener("click", () => {
+    if (restoreFrom($("backupText").value, "That doesn't look like a backup. Paste the whole code from Copy backup.")) $("backupText").value = "";
+  });
+
+  // Saving to Files goes through the share sheet, which has "Save to Files" on iPhone.
+  // Where sharing files isn't supported, the backup downloads instead.
+  $("saveFile").addEventListener("click", async () => {
+    const d = new Date();
+    const stamp = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    const name = "shiny-counter-backup-" + stamp + ".json";
+    const body = JSON.stringify({ v: 1, savedAt: d.toISOString(), hunts: state.hunts }, null, 2);
+    const file = new File([body], name, { type: "application/json" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: name });
+        setStatus("Backup ready. If you picked Save to Files, it's in the folder you chose as " + name + ".");
+      } catch (e) {
+        if (e && e.name === "AbortError") setStatus("Backup not saved.");
+        else setStatus("Couldn't open the share sheet. Try Copy backup instead.");
+      }
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    setStatus("Backup downloaded as " + name + ".");
+  });
+  $("openFile").addEventListener("click", () => { $("fileInput").value = ""; $("fileInput").click(); });
+  $("fileInput").addEventListener("change", async () => {
+    const f = $("fileInput").files[0]; if (!f) return;
+    try { restoreFrom(await f.text(), "That file isn't a Shiny Reset Counter backup. Pick a file saved with Save backup to Files."); }
+    catch (e) { setStatus("Couldn't read that file. Try picking it again."); }
   });
 })();
 </script>
