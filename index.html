@@ -79,7 +79,7 @@ header h1 { font-size: 18px; font-weight: 800; letter-spacing: -.01em; display: 
 /* Stage */
 .stage { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; }
 .scene {
-  position: relative; height: 230px; display: grid; place-items: end center; padding-bottom: 34px;
+  position: relative; height: clamp(120px, calc(100svh - 590px), 230px); display: grid; place-items: end center; padding-bottom: 34px;
   background: linear-gradient(180deg, var(--sky-1), var(--sky-2));
 }
 .platform { position: absolute; left: 50%; bottom: 22px; width: 220px; height: 46px; transform: translateX(-50%); border-radius: 50%; background: var(--platform); box-shadow: inset 0 -6px 0 var(--platform-edge); }
@@ -175,12 +175,41 @@ form.new .full { grid-column: 1 / -1; }
 .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .tools input { width: 110px; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); }
 .note { font-size: 13px; color: var(--muted); flex-basis: 100%; margin: 0; }
+.pane { display: flex; flex-direction: column; gap: 20px; }
+body { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding: 6px max(16px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.tabbar-inner { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.tabbar button {
+  background: none; border: 0; border-radius: 12px; padding: 6px 4px; min-height: 52px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: 12px; font-weight: 700; color: var(--muted); -webkit-tap-highlight-color: transparent;
+}
+.tabbar button svg { width: 24px; height: 24px; }
+.tabbar button[aria-selected="true"] { color: var(--ink); }
+.tabbar button[aria-selected="true"] svg { color: var(--accent-deep); }
 .tip { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; font-size: 14px; color: var(--muted); max-width: 65ch; }
 .tip b { color: var(--ink); }
 .tip p { margin: 0; }
 .tip p + p { margin-top: 8px; }
+.status:empty { display: none; }
 .status { font-size: 12.5px; color: var(--muted); text-align: center; margin: 0; }
 @media (max-width: 360px) { .taps { grid-template-columns: 64px 1fr; } .stats b { font-size: 17px; } .stats #stSession { font-size: 30px; } .tap { height: 128px; } }
+/* Short screens (iPhone SE and similar): tighten the counter so +1 fits above the tab bar. */
+@media (max-height: 720px) {
+  main { gap: 14px; }
+  header h1 { font-size: 16px; }
+  .readout { padding: 12px 18px 14px; gap: 10px; }
+  .title-row h2 { font-size: 20px; }
+  .count { font-size: clamp(56px, 16vw, 68px); }
+  .stats #stSession { font-size: 28px; }
+  .tap { height: 104px; }
+  .tap.plus { font-size: 40px; }
+  .pane { gap: 14px; }
+}
 @media (prefers-reduced-motion: reduce) { .count.bump, .sparkles.go i { animation: none; } .bar > i, .tap { transition: none; } }
 </style>
 </head>
@@ -192,6 +221,7 @@ form.new .full { grid-column: 1 / -1; }
     <button class="quiet" type="button" id="newBtnTop">New hunt</button>
   </header>
 
+  <div class="pane" id="pane-counter" role="tabpanel" aria-labelledby="tab-counter">
   <form class="new" id="newForm" hidden>
     <div class="field"><label for="fGame">Game</label>
       <select id="fGame">
@@ -243,7 +273,10 @@ form.new .full { grid-column: 1 / -1; }
   </div>
   <div class="hit-wrap"><button class="found-btn" id="foundBtn" type="button">It's shiny! Mark as found</button><label class="haptic-hit" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label></div>
   <p class="hint">On a keyboard: <kbd>Space</kbd> adds one, <kbd>Backspace</kbd> takes one back.</p>
+  <div class="tip" id="tip"></div>
+  </div>
 
+  <div class="pane" id="pane-hunts" role="tabpanel" aria-labelledby="tab-hunts" hidden>
   <section class="panel">
     <h2>Your hunts <button class="link-btn" type="button" id="newBtn">+ New hunt</button></h2>
     <ul class="hunts" id="huntList"></ul>
@@ -251,7 +284,7 @@ form.new .full { grid-column: 1 / -1; }
   </section>
 
   <section class="panel" id="manage" hidden>
-    <h2>This hunt</h2>
+    <h2 id="manageTitle">This hunt</h2>
     <div class="tools">
       <button class="ghost" type="button" id="setBtn">Set count</button>
       <span id="setWrap" hidden><input id="setInput" type="number" min="0" step="1" inputmode="numeric" aria-label="New count"> <button class="solid" type="button" id="setSave">Save</button></span>
@@ -261,7 +294,9 @@ form.new .full { grid-column: 1 / -1; }
       <p class="note" id="startedNote"></p>
     </div>
   </section>
+  </div>
 
+  <div class="pane" id="pane-backup" role="tabpanel" aria-labelledby="tab-backup" hidden>
   <section class="panel" id="backup">
     <h2>Backup</h2>
     <p class="note" style="margin:0">Your hunts are saved on this device. Save a backup to the Files app now and then, so you can restore it if the app is deleted or you change phones.</p>
@@ -271,11 +306,22 @@ form.new .full { grid-column: 1 / -1; }
     <textarea id="backupText" rows="3" aria-label="Backup code" style="font:13px/1.4 ui-monospace,monospace;width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);resize:vertical" placeholder="Paste a backup here to restore it"></textarea>
     <div class="actions"><button class="ghost" type="button" id="copyBackup">Copy backup</button><button class="ghost" type="button" id="restoreBackup">Restore from pasted backup</button></div>
   </section>
+  </div>
 
-  <div class="tip" id="tip"></div>
-  <p class="status" id="status">Saved on this device.</p>
-  <p class="status" id="version">Version 1.8</p>
+  <p class="status" id="status"></p>
+  <p class="status" id="version">Version 1.9</p>
 </main>
+
+<nav class="tabbar" role="tablist" aria-label="Sections">
+  <div class="tabbar-inner">
+    <button type="button" role="tab" id="tab-counter" data-tab="counter" aria-controls="pane-counter" aria-selected="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1l2.6 8.4L23 12l-8.4 2.6L12 23l-2.6-8.4L1 12l8.4-2.6z"/></svg>Counter</button>
+    <button type="button" role="tab" id="tab-hunts" data-tab="hunts" aria-controls="pane-hunts" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.6" fill="currentColor"/><circle cx="4.5" cy="12" r="1.6" fill="currentColor"/><circle cx="4.5" cy="18" r="1.6" fill="currentColor"/></svg>Hunts</button>
+    <button type="button" role="tab" id="tab-backup" data-tab="backup" aria-controls="pane-backup" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7 18a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 8a4 4 0 0 1 .5 8M12 12v8M9 15l3-3 3 3"/></svg>Backup</button>
+  </div>
+</nav>
 
 <script>
 (function () {
@@ -327,6 +373,12 @@ form.new .full { grid-column: 1 / -1; }
   }
 
   // Draws a shiny sprite into el. Gen 1 games use the Crystal sprite, since that's where the shiny shows.
+  // Largest scale (up to the default) at which a sprite of this height fits the scene.
+  function fitScale(px, wanted) {
+    const room = $("sprite").parentElement.clientHeight - 44;
+    return Math.max(1, Math.min(wanted, room / px));
+  }
+
   function drawSprite(el, dex, gen, scale) {
     const a = ATLAS[gen === 3 ? 3 : 2];
     if (!dex || (gen !== 3 && dex > 251)) { el.style.cssText = ""; return false; }
@@ -353,7 +405,7 @@ form.new .full { grid-column: 1 / -1; }
     animKey = key;
     img.onload = () => {
       if (animKey !== key || !el.isConnected) return;
-      const s = gen === 3 ? 1.8 : 2.5;
+      const s = fitScale(img.naturalHeight, gen === 3 ? 1.8 : 2.5);
       img.width = img.naturalWidth * s; img.height = img.naturalHeight * s;
       el.style.backgroundImage = "none";
       el.style.width = img.width + "px"; el.style.height = img.height + "px";
@@ -365,6 +417,9 @@ form.new .full { grid-column: 1 / -1; }
     gen2Anims.then((all) => { if (all[dex] && animKey === key) img.src = "data:image/gif;base64," + all[dex]; });
   }
   let gen2Anims = null;
+
+  // Rotating the phone changes the room for the sprite, so draw it again.
+  window.addEventListener("resize", () => { $("sprite").dataset.key = ""; render(); });
 
   function sortedHunts() { return Object.entries(state.hunts).sort((a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0)); }
   function active() { return state.activeId ? state.hunts[state.activeId] : null; }
@@ -379,7 +434,8 @@ form.new .full { grid-column: 1 / -1; }
     if (sp.dataset.key !== spriteKey) {
       sp.dataset.key = spriteKey;
       sp.textContent = "";
-      if (h && drawSprite(sp, dex, gen)) {
+      const a = ATLAS[gen === 3 ? 3 : 2];
+      if (h && drawSprite(sp, dex, gen, fitScale(a.cell, a.scale))) {
         sp.classList.remove("none"); sp.setAttribute("aria-label", "Shiny " + h.name);
         animate(sp, dex, gen);
       } else {
@@ -424,13 +480,14 @@ form.new .full { grid-column: 1 / -1; }
       tx.append(n, m);
       const c = document.createElement("span"); c.className = "c"; c.textContent = fmt(x.count);
       b.append(th, tx, c);
-      b.addEventListener("click", () => { state.activeId = id; lsSet(LS_ACTIVE, id); hideTools(); render(); });
+      b.addEventListener("click", () => { state.activeId = id; lsSet(LS_ACTIVE, id); hideTools(); render(); showTab("counter"); });
       li.appendChild(b); list.appendChild(li);
     }
     $("emptyMsg").hidden = Object.keys(state.hunts).length > 0;
     $("manage").hidden = !h;
     $("reopenBtn").hidden = !(h && h.foundAt);
     $("startedNote").textContent = h ? "Started " + new Date(h.startedAt).toLocaleDateString() + "." : "";
+    $("manageTitle").textContent = h ? "Selected: " + h.name : "This hunt";
   }
 
   function bump() { const el = $("count"); el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
@@ -499,6 +556,7 @@ form.new .full { grid-column: 1 / -1; }
   $("minusBtn").addEventListener("click", () => change(-1));
   document.addEventListener("keydown", (e) => {
     if (e.target.closest && e.target.closest("input, select, textarea")) return;
+    if (currentTab !== "counter") return;
     if (e.key === " " && e.target.closest && e.target.closest("button")) return; // the focused button clicks itself
     if (e.key === " " || e.key === "ArrowUp") { e.preventDefault(); change(1); flash("plusBtn"); }
     else if (e.key === "Backspace" || e.key === "ArrowDown") { e.preventDefault(); change(-1); flash("minusBtn"); }
@@ -561,6 +619,7 @@ form.new .full { grid-column: 1 / -1; }
   }
   function showSuggestions() {
     const gen = genOf($("fGame").value), q = $("fMon").value.trim();
+    if (!q) { hideSuggestions(); return; } // an empty box would cover the form's buttons
     const list = $("monSug"); list.replaceChildren();
     sugItems = matches(q, gen); sugIdx = -1;
     if (q && sugItems.length === 1 && norm(NAMES[sugItems[0] - 1]) === norm(q)) { hideSuggestions(); return; }
@@ -609,7 +668,25 @@ form.new .full { grid-column: 1 / -1; }
     else if (e.key === "Enter" && sugItems.length && (sugIdx >= 0 || sugItems.length === 1)) { pickSuggestion(sugItems[Math.max(sugIdx, 0)]); e.preventDefault(); }
   });
 
+  // Tabs. The last tab you used is remembered on this device.
+  const TABS = ["counter", "hunts", "backup"];
+  let currentTab = "counter";
+  function showTab(name, opts) {
+    if (!TABS.includes(name)) name = "counter";
+    const changed = name !== currentTab;
+    currentTab = name;
+    for (const tb of TABS) {
+      $("pane-" + tb).hidden = tb !== name;
+      $("tab-" + tb).setAttribute("aria-selected", tb === name ? "true" : "false");
+    }
+    lsSet("shiny-counter-tab", name);
+    if (changed && !(opts && opts.keepScroll)) window.scrollTo(0, 0);
+  }
+  document.querySelectorAll(".tabbar button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+  showTab(lsGet("shiny-counter-tab") || "counter", { keepScroll: true });
+
   function openForm() {
+    showTab("counter");
     const f = $("newForm");
     f.hidden = false; fillForGame();
     $("fMon").focus({ preventScroll: true });

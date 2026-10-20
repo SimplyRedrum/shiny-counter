@@ -31,7 +31,7 @@ head = '''<!doctype html>
 rep("<title>Shiny Reset Counter</title>\n", head + "<title>Shiny Reset Counter</title>\n")
 rep("<style>\n", "<style>\n:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }\nbody { margin: 0; }\n")
 rep("</style>\n", "</style>\n</head>\n<body>\n")
-rep('  <div class="tip" id="tip"></div>', '''  <section class="panel" id="backup">
+rep('  <!--BACKUP-->', '''  <section class="panel" id="backup">
     <h2>Backup</h2>
     <p class="note" style="margin:0">Your hunts are saved on this device. Save a backup to the Files app now and then, so you can restore it if the app is deleted or you change phones.</p>
     <div class="actions"><button class="solid" type="button" id="saveFile">Save backup to Files</button><button class="ghost" type="button" id="openFile">Restore from a file</button></div>
@@ -39,10 +39,8 @@ rep('  <div class="tip" id="tip"></div>', '''  <section class="panel" id="backup
     <p class="note" style="margin:4px 0 0">Or copy the backup as text, for example into Notes:</p>
     <textarea id="backupText" rows="3" aria-label="Backup code" style="font:13px/1.4 ui-monospace,monospace;width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);resize:vertical" placeholder="Paste a backup here to restore it"></textarea>
     <div class="actions"><button class="ghost" type="button" id="copyBackup">Copy backup</button><button class="ghost" type="button" id="restoreBackup">Restore from pasted backup</button></div>
-  </section>
-
-  <div class="tip" id="tip"></div>''')
-rep('<p class="status" id="status">Connecting…</p>', '<p class="status" id="status">Saved on this device.</p>')
+  </section>''')
+rep('<p class="status" id="status">Connecting…</p>', '<p class="status" id="status"></p>')
 start = t.index("  render();\n  (async () => {")
 end = t.index("  })();\n})();", start) + len("  })();\n")
 boot = '''  state.mode = "local";
