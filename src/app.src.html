@@ -58,6 +58,11 @@ h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 header h1 { font-size: 18px; font-weight: 800; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
 .star { width: 18px; height: 18px; color: var(--accent-deep); flex: none; }
+.head-actions { display: flex; gap: 8px; align-items: center; flex: none; }
+.quiet.icon { width: 38px; height: 34px; padding: 0; display: grid; place-items: center; }
+.quiet.icon svg { width: 20px; height: 20px; }
+#soundBtn[aria-pressed="true"] .off, #soundBtn[aria-pressed="false"] .on { display: none; }
+#soundBtn[aria-pressed="false"] { color: var(--muted); }
 .quiet { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-weight: 700; font-size: 14px; }
 
 /* Stage */
@@ -200,7 +205,13 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 <main>
   <header>
     <h1><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1l2.6 8.4L23 12l-8.4 2.6L12 23l-2.6-8.4L1 12l8.4-2.6z"/></svg>Shiny Reset Counter</h1>
-    <button class="quiet" type="button" id="newBtnTop">New hunt</button>
+    <div class="head-actions">
+      <button class="quiet icon" type="button" id="soundBtn" aria-pressed="true" aria-label="Clicker sound">
+        <svg class="on" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+        <svg class="off" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></svg>
+      </button>
+      <button class="quiet" type="button" id="newBtnTop">New hunt</button>
+    </div>
   </header>
 
   <div class="pane" id="pane-counter" role="tabpanel" aria-labelledby="tab-counter">
@@ -283,7 +294,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   </div>
 
   <p class="status" id="status">Connecting…</p>
-  <p class="status" id="version">Version 1.9</p>
+  <p class="status" id="version">Version 2.0</p>
 </main>
 
 <nav class="tabbar" role="tablist" aria-label="Sections">
@@ -500,7 +511,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     h.count = next;
     h.session = Math.max(0, sessionOf(h) + delta); delete h.days;
     h.updatedAt = Date.now();
-    save(state.activeId); render(); tick(); if (delta > 0) bump();
+    save(state.activeId); render(); tick(); clickSound(delta); if (delta > 0) bump();
     keepAwake();
   }
 
@@ -509,6 +520,61 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   const canVibrate = typeof navigator.vibrate === "function";
   function tick() { if (canVibrate) navigator.vibrate(12); }
   function celebrate() { if (canVibrate) navigator.vibrate([40, 70, 40, 70, 120]); }
+
+  // Clicker sound, made with Web Audio so there's no file to load. On iPhone it follows the
+  // ring/silent switch. The speaker button in the header turns it off; the choice is remembered.
+  let soundOn = lsGet("shiny-counter-sound") !== "off";
+  let audio = null, noise = null;
+  function audioCtx() {
+    if (!audio) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audio = new AC();
+      // A short burst of noise is the "snap" of a mechanical clicker.
+      noise = audio.createBuffer(1, Math.floor(audio.sampleRate * 0.03), audio.sampleRate);
+      const d = noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 4);
+    }
+    if (audio.state === "suspended") audio.resume();
+    return audio;
+  }
+  function clickSound(delta) {
+    if (!soundOn) return;
+    const ac = audioCtx(); if (!ac) return;
+    const now = ac.currentTime;
+    const src = ac.createBufferSource(); src.buffer = noise;
+    const band = ac.createBiquadFilter(); band.type = "bandpass"; band.frequency.value = delta > 0 ? 3200 : 1600; band.Q.value = 1.2;
+    const g = ac.createGain(); g.gain.value = 0.9;
+    src.connect(band).connect(g).connect(ac.destination);
+    src.start(now);
+    // A tiny tone under the snap gives it body; lower for -1.
+    const osc = ac.createOscillator(); osc.type = "triangle";
+    osc.frequency.setValueAtTime(delta > 0 ? 1800 : 900, now);
+    osc.frequency.exponentialRampToValueAtTime(delta > 0 ? 700 : 400, now + 0.03);
+    const og = ac.createGain();
+    og.gain.setValueAtTime(0.25, now); og.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    osc.connect(og).connect(ac.destination);
+    osc.start(now); osc.stop(now + 0.05);
+  }
+  function chimeSound() {
+    if (!soundOn) return;
+    const ac = audioCtx(); if (!ac) return;
+    const now = ac.currentTime;
+    // Rising sparkle: E6, G#6, B6, E7.
+    [1318.5, 1661.2, 1975.5, 2637].forEach((f, i) => {
+      const t0 = now + i * 0.07;
+      const osc = ac.createOscillator(); osc.type = "sine"; osc.frequency.value = f;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+      osc.connect(g).connect(ac.destination); osc.start(t0); osc.stop(t0 + 0.5);
+    });
+  }
+  function showSound() { $("soundBtn").setAttribute("aria-pressed", soundOn ? "true" : "false"); $("soundBtn").title = soundOn ? "Sound on" : "Sound off"; }
+  $("soundBtn").addEventListener("click", () => {
+    soundOn = !soundOn; lsSet("shiny-counter-sound", soundOn ? "on" : "off"); showSound();
+    if (soundOn) clickSound(1);
+  });
+  showSound();
   document.querySelectorAll(".hit-wrap").forEach((wrap) => {
     const btn = wrap.querySelector("button"), hit = wrap.querySelector(".haptic-hit");
     hit.querySelector("input").addEventListener("change", (e) => {
@@ -559,7 +625,7 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
   $("foundBtn").addEventListener("click", () => {
     const h = active(); if (!h || h.foundAt) return;
-    h.foundAt = Date.now(); h.updatedAt = Date.now(); save(state.activeId); render(); sparkle(); celebrate();
+    h.foundAt = Date.now(); h.updatedAt = Date.now(); save(state.activeId); render(); sparkle(); celebrate(); chimeSound();
     setStatus("Congratulations! Shiny " + h.name + " after " + fmt(h.count) + " resets.");
   });
   $("reopenBtn").addEventListener("click", () => {
